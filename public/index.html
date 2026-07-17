@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Paiement KKiaPay - Démo Sandbox</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --accent: #22c55e;
+    --accent-dark: #16a34a;
+    --danger: #ef4444;
+    --pending: #f59e0b;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 32px 16px;
+  }
+  .container { max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  p.subtitle { color: var(--muted); margin-top: 0; margin-bottom: 24px; }
+  .card {
+    background: var(--card);
+    border-radius: 14px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+  }
+  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    color: var(--text);
+    font-size: 15px;
+    margin-bottom: 16px;
+  }
+  input:focus { outline: 2px solid var(--accent); }
+  button.pay-btn {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #052e13;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+  button.pay-btn:hover { background: var(--accent-dark); }
+  button.pay-btn:disabled { opacity: .6; cursor: not-allowed; }
+  #status-msg { margin-top: 12px; font-size: 14px; min-height: 18px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #334155; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; }
+  .badge {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    display: inline-block;
+  }
+  .badge.SUCCESS { background: rgba(34,197,94,.15); color: var(--accent); }
+  .badge.FAILED { background: rgba(239,68,68,.15); color: var(--danger); }
+  .badge.PENDING { background: rgba(245,158,11,.15); color: var(--pending); }
+  .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 20px 0; }
+  .sandbox-tag {
+    display: inline-block;
+    background: rgba(245,158,11,.15);
+    color: var(--pending);
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    margin-bottom: 16px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>💳 Paiement en ligne</h1>
+  <p class="subtitle">Intégration KKiaPay — mode Sandbox</p>
+  <span class="sandbox-tag" id="sandbox-tag" style="display:none;">Mode SANDBOX actif</span>
+
+  <div class="card">
+    <label for="amount">Montant (XOF / FCFA)</label>
+    <input type="number" id="amount" min="100" value="1000" />
+
+    <label for="description">Description (optionnel)</label>
+    <input type="text" id="description" placeholder="Ex : Recharge moto EHU #12" />
+
+    <button class="pay-btn" id="pay-btn">Payer avec KKiaPay</button>
+    <div id="status-msg"></div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">Historique des transactions</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Transaction</th>
+          <th>Montant</th>
+          <th>Statut</th>
+          <th>Description</th>
+        </tr>
+      </thead>
+      <tbody id="history-body">
+        <tr><td colspan="5" class="empty">Chargement...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SDK JavaScript KKiaPay -->
+<script src="https://cdn.kkiapay.me/k.js"></script>
+<script>
+  let PUBLIC_KEY = "";
+  let SANDBOX = true;
+
+  async function loadConfig() {
+    const res = await fetch("/api/config");
+    const cfg = await res.json();
+    PUBLIC_KEY = cfg.publicKey;
+    SANDBOX = cfg.sandbox;
+    document.getElementById("sandbox-tag").style.display = SANDBOX ? "inline-block" : "none";
+  }
+
+  function formatDate(iso) {
+    return new Date(iso).toLocaleString("fr-FR");
+  }
+
+  function formatAmount(a) {
+    return new Intl.NumberFormat("fr-FR").format(a) + " FCFA";
+  }
+
+  async function loadHistory() {
+    const res = await fetch("/api/transactions");
+    const data = await res.json();
+    const body = document.getElementById("history-body");
+
+    if (!data.length) {
+      body.innerHTML = `<tr><td colspan="5" class="empty">Aucune transaction pour le moment.</td></tr>`;
+      return;
+    }
+
+    body.innerHTML = data.map(t => `
+      <tr>
+        <td>${formatDate(t.updatedAt)}</td>
+        <td>${t.transactionId}</td>
+        <td>${formatAmount(t.amount)}</td>
+        <td><span class="badge ${t.status}">${t.status === "SUCCESS" ? "Payé" : t.status === "FAILED" ? "Échoué" : "En attente"}</span></td>
+        <td>${t.description || "—"}</td>
+      </tr>
+    `).join("");
+  }
+
+  async function verifyOnServer(transactionId, description) {
+    const res = await fetch("/api/transactions/verify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transactionId, description }),
+    });
+    return res.json();
+  }
+
+  function setStatusMsg(text, color) {
+    const el = document.getElementById("status-msg");
+    el.textContent = text;
+    el.style.color = color;
+  }
+
+  document.getElementById("pay-btn").addEventListener("click", () => {
+    const amount = parseInt(document.getElementById("amount").value, 10);
+    if (!amount || amount < 100) {
+      setStatusMsg("Montant invalide (minimum 100 FCFA).", "#ef4444");
+      return;
+    }
+    setStatusMsg("", "");
+
+    // Ouvre le widget de paiement KKiaPay (modal)
+    openKkiapayWidget({
+      amount: amount,
+      key: PUBLIC_KEY,
+      sandbox: SANDBOX,
+      position: "center",
+      data: document.getElementById("description").value || "",
+    });
+  });
+
+  // Paiement réussi côté widget -> on revérifie TOUJOURS côté serveur avant d'afficher "Payé"
+  addSuccessListener(async (response) => {
+    setStatusMsg("Paiement reçu, vérification en cours...", "#f59e0b");
+    const description = document.getElementById("description").value;
+    const record = await verifyOnServer(response.transactionId, description);
+
+    if (record.status === "SUCCESS") {
+      setStatusMsg("✅ Paiement confirmé !", "#22c55e");
+    } else if (record.status === "PENDING") {
+      setStatusMsg("⏳ Paiement en attente de confirmation.", "#f59e0b");
+    } else {
+      setStatusMsg("❌ Le paiement n'a pas pu être confirmé.", "#ef4444");
+    }
+    loadHistory();
+  });
+
+  // Paiement échoué / annulé côté widget
+  addFailedListener(async (response) => {
+    setStatusMsg("❌ Paiement échoué.", "#ef4444");
+    if (response && response.transactionId) {
+      await verifyOnServer(response.transactionId, document.getElementById("description").value);
+    }
+    loadHistory();
+  });
+
+  loadConfig();
+  loadHistory();
+</script>
+</body>
+</html>
