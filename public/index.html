@@ -102,23 +102,6 @@
     <div id="status-msg"></div>
   </div>
 
-  <div class="card">
-    <h3 style="margin-top:0;">Historique des transactions</h3>
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Transaction</th>
-          <th>Montant</th>
-          <th>Statut</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody id="history-body">
-        <tr><td colspan="5" class="empty">Chargement...</td></tr>
-      </tbody>
-    </table>
-  </div>
 </div>
 
 <!-- SDK JavaScript KKiaPay -->
@@ -141,27 +124,6 @@
 
   function formatAmount(a) {
     return new Intl.NumberFormat("fr-FR").format(a) + " FCFA";
-  }
-
-  async function loadHistory() {
-    const res = await fetch("/api/transactions");
-    const data = await res.json();
-    const body = document.getElementById("history-body");
-
-    if (!data.length) {
-      body.innerHTML = `<tr><td colspan="5" class="empty">Aucune transaction pour le moment.</td></tr>`;
-      return;
-    }
-
-    body.innerHTML = data.map(t => `
-      <tr>
-        <td>${formatDate(t.updatedAt)}</td>
-        <td>${t.transactionId}</td>
-        <td>${formatAmount(t.amount)}</td>
-        <td><span class="badge ${t.status}">${t.status === "SUCCESS" ? "Payé" : t.status === "FAILED" ? "Échoué" : "En attente"}</span></td>
-        <td>${t.description || "—"}</td>
-      </tr>
-    `).join("");
   }
 
   async function verifyOnServer(transactionId, description) {
@@ -210,7 +172,6 @@
     } else {
       setStatusMsg("❌ Le paiement n'a pas pu être confirmé.", "#ef4444");
     }
-    loadHistory();
   });
 
   // Paiement échoué / annulé côté widget
@@ -219,11 +180,9 @@
     if (response && response.transactionId) {
       await verifyOnServer(response.transactionId, document.getElementById("description").value);
     }
-    loadHistory();
   });
 
   loadConfig();
-  loadHistory();
 </script>
 </body>
 </html>

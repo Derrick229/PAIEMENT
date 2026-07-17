@@ -1,5 +1,6 @@
 require("dotenv").config();
 const express = require("express");
+const session = require("express-session");
 const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
@@ -9,6 +10,27 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET || "change-this-secret-in-env",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      maxAge: 1000 * 60 * 60 * 4, // 4 heures
+    },
+  })
+);
+
+// Middleware : bloque l'accès si l'admin n'est pas connecté
+function requireAdmin(req, res, next) {
+  if (req.session && req.session.isAdmin) return next();
+  if (req.originalUrl.startsWith("/api/")) {
+    return res.status(401).json({ error: "Non autorisé" });
+  }
+  return res.redirect("/admin/login.html");
+}
 
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, "transactions.json");
@@ -43,8 +65,32 @@ app.get("/api/config", (req, res) => {
   });
 });
 
-// Historique des transactions (les plus récentes en premier)
-app.get("/api/transactions", (req, res) => {
+// --- Authentification admin ---
+app.post("/api/admin/login", (req, res) => {
+  const { password } = req.body;
+  if (password && password === process.env.ADMIN_PASSWORD) {
+    req.session.isAdmin = true;
+    return res.json({ ok: true });
+  }
+  return res.status(401).json({ error: "Mot de passe incorrect" });
+});
+
+app.post("/api/admin/logout", (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
+});
+
+// Page de connexion (publique)
+app.get("/admin/login.html", (req, res) => {
+  res.sendFile(path.join(__dirname, "admin", "login.html"));
+});
+
+// Page admin protégée (le tableau de l'historique)
+app.get("/admin", requireAdmin, (req, res) => {
+  res.sendFile(path.join(__dirname, "admin", "dashboard.html"));
+});
+
+// Historique des transactions (protégé — les plus récentes en premier)
+app.get("/api/transactions", requireAdmin, (req, res) => {
   const data = readDB().sort(
     (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
   );

@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Connexion Admin</title>
+<style>
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Roboto, sans-serif;
+    background: #0f172a;
+    color: #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  .card {
+    background: #1e293b;
+    padding: 32px;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.25);
+  }
+  h1 { font-size: 18px; margin-top: 0; }
+  label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #334155;
+    background: #0f172a;
+    color: #e2e8f0;
+    font-size: 15px;
+    margin-bottom: 16px;
+  }
+  button {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: #22c55e;
+    color: #052e13;
+    font-weight: 600;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  button:hover { background: #16a34a; }
+  #error { color: #ef4444; font-size: 13px; min-height: 18px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🔒 Espace Admin</h1>
+  <label for="password">Mot de passe</label>
+  <input type="password" id="password" placeholder="••••••••" />
+  <button id="login-btn">Se connecter</button>
+  <div id="error"></div>
+</div>
+
+<script>
+  document.getElementById("login-btn").addEventListener("click", login);
+  document.getElementById("password").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") login();
+  });
+
+  async function login() {
+    const password = document.getElementById("password").value;
+    const errorEl = document.getElementById("error");
+    errorEl.textContent = "";
+
+    const res = await fetch("/api/admin/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password }),
+    });
+
+    if (res.ok) {
+      window.location.href = "/admin";
+    } else {
+      errorEl.textContent = "Mot de passe incorrect.";
+    }
+  }
+</script>
+</body>
+</html>
