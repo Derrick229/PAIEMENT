@@ -55,7 +55,15 @@ const k = kkiapay({
 
 // --- Email (via l'API Brevo, fonctionne même sur les hébergeurs qui bloquent le SMTP) ---
 async function sendReceiptEmail(record) {
-  if (!process.env.BREVO_API_KEY || !record.customer_email) return;
+  if (!process.env.BREVO_API_KEY) {
+    console.log("Email non envoyé : BREVO_API_KEY manquante dans les variables d'environnement.");
+    return;
+  }
+  if (!record.customer_email) {
+    console.log("Email non envoyé : aucune adresse email fournie pour cette commande (" + record.order_id + ").");
+    return;
+  }
+  console.log("Tentative d'envoi du reçu à " + record.customer_email + " ...");
   const dateStr = new Date(record.updated_at).toLocaleString("fr-FR");
 
   try {
@@ -89,6 +97,8 @@ async function sendReceiptEmail(record) {
     if (!response.ok) {
       const errText = await response.text();
       console.error("Erreur envoi email (Brevo) :", response.status, errText);
+    } else {
+      console.log("Email envoyé avec succès à " + record.customer_email);
     }
   } catch (err) {
     console.error("Erreur envoi email (Brevo) :", err.message || err);
