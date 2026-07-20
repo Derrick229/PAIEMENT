@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Admin - Historique des transactions</title>
+<title>XSMARTPUMP - Admin</title>
 <style>
   :root {
     --bg: #0f172a;
@@ -13,6 +13,16 @@
     --pending: #f59e0b;
     --text: #e2e8f0;
     --muted: #94a3b8;
+    --border: #334155;
+    --input-bg: #0f172a;
+  }
+  [data-theme="light"] {
+    --bg: #f1f5f9;
+    --card: #ffffff;
+    --text: #0f172a;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --input-bg: #f8fafc;
   }
   * { box-sizing: border-box; }
   body {
@@ -20,15 +30,18 @@
     font-family: "Segoe UI", Roboto, sans-serif;
     background: var(--bg);
     color: var(--text);
-    padding: 32px 16px;
+    padding: 28px 16px;
+    transition: background .2s, color .2s;
   }
-  .container { max-width: 900px; margin: 0 auto; }
-  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
   h1 { font-size: 20px; margin: 0; }
-  button.logout {
-    background: transparent;
-    border: 1px solid #334155;
-    color: var(--muted);
+  h3 { margin-top: 0; }
+  .top-actions { display: flex; gap: 10px; align-items: center; }
+  button.icon-btn, button.logout {
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
     padding: 8px 14px;
     border-radius: 8px;
     cursor: pointer;
@@ -37,103 +50,285 @@
   button.logout:hover { border-color: var(--danger); color: var(--danger); }
   .card {
     background: var(--card);
+    border: 1px solid var(--border);
     border-radius: 14px;
-    padding: 24px;
-    box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+    padding: 20px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.12);
+    margin-bottom: 20px;
   }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid #334155; }
-  th { color: var(--muted); font-weight: 500; font-size: 12px; text-transform: uppercase; }
-  .badge { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; display: inline-block; }
+  .stats { display: flex; gap: 14px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; flex: 1; min-width: 140px; }
+  .stat .label { color: var(--muted); font-size: 11px; text-transform: uppercase; }
+  .stat .value { font-size: 20px; font-weight: 700; margin-top: 4px; }
+  .charts-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .charts-row .card { flex: 1; min-width: 300px; }
+  .settings-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; align-items: end; }
+  label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; }
+  input, select {
+    width: 100%;
+    padding: 9px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--input-bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+  button.save-btn, button.filter-btn {
+    padding: 9px 16px;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #052e13;
+    font-weight: 600;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-bottom: 16px; }
+  .filters > div { flex: 1; min-width: 140px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
+  .table-wrap { overflow-x: auto; }
+  .badge { padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; display: inline-block; }
   .badge.SUCCESS { background: rgba(34,197,94,.15); color: var(--accent); }
   .badge.FAILED { background: rgba(239,68,68,.15); color: var(--danger); }
   .badge.PENDING { background: rgba(245,158,11,.15); color: var(--pending); }
+  .deliver-btn {
+    padding: 5px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text);
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .deliver-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .delivered-tag { color: var(--accent); font-size: 12px; }
   .empty { color: var(--muted); font-size: 14px; text-align: center; padding: 20px 0; }
-  .stats { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
-  .stat { background: var(--card); border-radius: 12px; padding: 16px 20px; flex: 1; min-width: 140px; }
-  .stat .label { color: var(--muted); font-size: 12px; text-transform: uppercase; }
-  .stat .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
 </style>
 </head>
 <body>
 <div class="container">
   <div class="top-bar">
-    <h1>📊 Historique des transactions</h1>
-    <button class="logout" id="logout-btn">Se déconnecter</button>
+    <h1>📊 XSMARTPUMP — Admin</h1>
+    <div class="top-actions">
+      <button class="icon-btn" id="theme-toggle">🌙</button>
+      <button class="logout" id="logout-btn">Se déconnecter</button>
+    </div>
   </div>
 
   <div class="stats" id="stats"></div>
 
+  <div class="charts-row">
+    <div class="card">
+      <h3>Revenu (30 derniers jours)</h3>
+      <canvas id="chart-revenue" height="180"></canvas>
+    </div>
+    <div class="card">
+      <h3>Réussis vs Échoués</h3>
+      <canvas id="chart-status" height="180"></canvas>
+    </div>
+  </div>
+
   <div class="card">
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Transaction</th>
-          <th>Montant</th>
-          <th>Statut</th>
-          <th>Description</th>
-        </tr>
-      </thead>
-      <tbody id="history-body">
-        <tr><td colspan="5" class="empty">Chargement...</td></tr>
-      </tbody>
-    </table>
+    <h3>⚙️ Réglages</h3>
+    <div class="settings-grid">
+      <div>
+        <label>Prix / litre (FCFA)</label>
+        <input type="number" id="price-input" />
+      </div>
+      <div>
+        <label>Stock restant (L)</label>
+        <input type="number" id="tank-remaining-input" />
+      </div>
+      <div>
+        <label>Capacité totale (L)</label>
+        <input type="number" id="tank-capacity-input" />
+      </div>
+      <div>
+        <button class="save-btn" id="save-settings-btn">Enregistrer</button>
+      </div>
+    </div>
+    <div id="settings-msg" style="margin-top:10px;font-size:13px;"></div>
+  </div>
+
+  <div class="card">
+    <h3>Historique des transactions</h3>
+    <div class="filters">
+      <div><label>Du</label><input type="date" id="filter-from" /></div>
+      <div><label>Au</label><input type="date" id="filter-to" /></div>
+      <div>
+        <label>Statut</label>
+        <select id="filter-status">
+          <option value="">Tous</option>
+          <option value="SUCCESS">Payé</option>
+          <option value="FAILED">Échoué</option>
+          <option value="PENDING">En attente</option>
+        </select>
+      </div>
+      <div><label>Recherche (référence / email)</label><input type="text" id="filter-search" placeholder="..." /></div>
+      <div><button class="filter-btn" id="filter-btn">Filtrer</button></div>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Référence</th>
+            <th>Quantité</th>
+            <th>Prix/L</th>
+            <th>Montant</th>
+            <th>Statut</th>
+            <th>Servi ?</th>
+            <th>Qté livrée</th>
+            <th>Email</th>
+          </tr>
+        </thead>
+        <tbody id="history-body">
+          <tr><td colspan="9" class="empty">Chargement...</td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
-  function formatDate(iso) {
-    return new Date(iso).toLocaleString("fr-FR");
+  function applyTheme(theme) {
+    document.documentElement.setAttribute("data-theme", theme);
+    document.getElementById("theme-toggle").textContent = theme === "light" ? "🌙" : "☀️";
+    localStorage.setItem("xsmartpump-theme", theme);
   }
-  function formatAmount(a) {
-    return new Intl.NumberFormat("fr-FR").format(a) + " FCFA";
-  }
+  document.getElementById("theme-toggle").addEventListener("click", () => {
+    const current = document.documentElement.getAttribute("data-theme") === "light" ? "dark" : "light";
+    applyTheme(current);
+  });
+  applyTheme(localStorage.getItem("xsmartpump-theme") || "dark");
 
-  async function loadHistory() {
-    const res = await fetch("/api/transactions");
+  function formatDate(iso) { return new Date(iso).toLocaleString("fr-FR"); }
+  function formatAmount(a) { return new Intl.NumberFormat("fr-FR").format(Math.round(a)) + " FCFA"; }
 
-    if (res.status === 401) {
-      window.location.href = "/admin/login.html";
-      return;
-    }
+  let revenueChart, statusChart;
 
-    const data = await res.json();
-    const body = document.getElementById("history-body");
-    const statsEl = document.getElementById("stats");
+  async function loadStats() {
+    const res = await fetch("/api/admin/stats");
+    if (res.status === 401) { window.location.href = "/admin/login.html"; return; }
+    const { byDay, totals } = await res.json();
 
-    const success = data.filter(t => t.status === "SUCCESS");
-    const failed = data.filter(t => t.status === "FAILED");
-    const totalAmount = success.reduce((sum, t) => sum + (t.amount || 0), 0);
-
-    statsEl.innerHTML = `
-      <div class="stat"><div class="label">Total transactions</div><div class="value">${data.length}</div></div>
-      <div class="stat"><div class="label">Payés</div><div class="value" style="color:var(--accent)">${success.length}</div></div>
-      <div class="stat"><div class="label">Échoués</div><div class="value" style="color:var(--danger)">${failed.length}</div></div>
-      <div class="stat"><div class="label">Montant encaissé</div><div class="value">${formatAmount(totalAmount)}</div></div>
+    document.getElementById("stats").innerHTML = `
+      <div class="stat"><div class="label">Transactions réussies</div><div class="value" style="color:var(--accent)">${totals.total_success}</div></div>
+      <div class="stat"><div class="label">Échouées</div><div class="value" style="color:var(--danger)">${totals.total_failed}</div></div>
+      <div class="stat"><div class="label">Revenu total</div><div class="value">${formatAmount(totals.total_revenue)}</div></div>
+      <div class="stat"><div class="label">Quantité totale vendue</div><div class="value">${parseFloat(totals.total_quantity_sold).toFixed(1)} L</div></div>
     `;
 
+    const labels = byDay.map(d => d.day);
+    const revenues = byDay.map(d => parseFloat(d.revenue));
+    const successCounts = byDay.reduce((s, d) => s + parseInt(d.success_count), 0);
+    const failedCounts = byDay.reduce((s, d) => s + parseInt(d.failed_count), 0);
+
+    if (revenueChart) revenueChart.destroy();
+    revenueChart = new Chart(document.getElementById("chart-revenue"), {
+      type: "bar",
+      data: { labels, datasets: [{ label: "Revenu (FCFA)", data: revenues, backgroundColor: "#22c55e" }] },
+      options: { plugins: { legend: { display: false } }, scales: { x: { ticks: { color: "#94a3b8" } }, y: { ticks: { color: "#94a3b8" } } } },
+    });
+
+    if (statusChart) statusChart.destroy();
+    statusChart = new Chart(document.getElementById("chart-status"), {
+      type: "doughnut",
+      data: {
+        labels: ["Réussis", "Échoués"],
+        datasets: [{ data: [successCounts, failedCounts], backgroundColor: ["#22c55e", "#ef4444"] }],
+      },
+      options: { plugins: { legend: { labels: { color: "#94a3b8" } } } },
+    });
+  }
+
+  async function loadSettings() {
+    const res = await fetch("/api/admin/settings");
+    if (res.status === 401) { window.location.href = "/admin/login.html"; return; }
+    const s = await res.json();
+    document.getElementById("price-input").value = s.pricePerLiter;
+    document.getElementById("tank-remaining-input").value = s.tankRemainingLiters;
+    document.getElementById("tank-capacity-input").value = s.tankCapacityLiters;
+  }
+
+  document.getElementById("save-settings-btn").addEventListener("click", async () => {
+    const pricePerLiter = document.getElementById("price-input").value;
+    const tankRemainingLiters = document.getElementById("tank-remaining-input").value;
+    const tankCapacityLiters = document.getElementById("tank-capacity-input").value;
+    const res = await fetch("/api/admin/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pricePerLiter, tankRemainingLiters, tankCapacityLiters }),
+    });
+    const msgEl = document.getElementById("settings-msg");
+    if (res.ok) {
+      msgEl.style.color = "#22c55e";
+      msgEl.textContent = "Réglages enregistrés.";
+    } else {
+      msgEl.style.color = "#ef4444";
+      msgEl.textContent = "Erreur lors de l'enregistrement.";
+    }
+  });
+
+  async function markDelivered(orderId) {
+    const res = await fetch(`/api/admin/transactions/${orderId}/delivered`, { method: "POST" });
+    if (res.ok) { loadHistory(); loadStats(); }
+  }
+  window.markDelivered = markDelivered;
+
+  async function loadHistory() {
+    const params = new URLSearchParams();
+    const from = document.getElementById("filter-from").value;
+    const to = document.getElementById("filter-to").value;
+    const status = document.getElementById("filter-status").value;
+    const search = document.getElementById("filter-search").value;
+    if (from) params.set("from", from);
+    if (to) params.set("to", to);
+    if (status) params.set("status", status);
+    if (search) params.set("search", search);
+
+    const res = await fetch("/api/transactions?" + params.toString());
+    if (res.status === 401) { window.location.href = "/admin/login.html"; return; }
+    const data = await res.json();
+    const body = document.getElementById("history-body");
+
     if (!data.length) {
-      body.innerHTML = `<tr><td colspan="5" class="empty">Aucune transaction pour le moment.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="9" class="empty">Aucune transaction.</td></tr>`;
       return;
     }
 
     body.innerHTML = data.map(t => `
       <tr>
-        <td>${formatDate(t.updatedAt)}</td>
-        <td>${t.transactionId}</td>
+        <td>${formatDate(t.updated_at)}</td>
+        <td>${t.transaction_id || t.order_id}</td>
+        <td>${t.quantity_liters} L</td>
+        <td>${formatAmount(t.price_per_liter)}</td>
         <td>${formatAmount(t.amount)}</td>
         <td><span class="badge ${t.status}">${t.status === "SUCCESS" ? "Payé" : t.status === "FAILED" ? "Échoué" : "En attente"}</span></td>
-        <td>${t.description || "—"}</td>
+        <td>${
+          t.status !== "SUCCESS" ? "—" :
+          t.delivered ? `<span class="delivered-tag">✅ Servi</span>` :
+          `<button class="deliver-btn" onclick="markDelivered('${t.order_id}')">Marquer servi</button>`
+        }</td>
+        <td>${t.delivered ? t.quantity_delivered + " L" : "—"}</td>
+        <td>${t.customer_email || "—"}</td>
       </tr>
     `).join("");
   }
+
+  document.getElementById("filter-btn").addEventListener("click", loadHistory);
 
   document.getElementById("logout-btn").addEventListener("click", async () => {
     await fetch("/api/admin/logout", { method: "POST" });
     window.location.href = "/admin/login.html";
   });
 
+  loadStats();
+  loadSettings();
   loadHistory();
 </script>
 </body>

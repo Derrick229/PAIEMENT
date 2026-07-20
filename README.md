@@ -1,75 +1,108 @@
-# Démo Paiement KKiaPay (mode Sandbox)
+# XSMARTPUMP — Distributeur automatique avec paiement KKiaPay
 
-Petite plateforme : un bouton **Payer**, redirection vers le widget KKiaPay,
-vérification du paiement côté serveur, et historique des transactions
-(Payé / Échoué / En attente).
+Plateforme pour distributeur automatique de liquide :
+- Le client saisit une quantité (L), le prix est calculé automatiquement (non modifiable)
+- Paiement via KKiaPay (sandbox)
+- Après paiement confirmé : message "préparez votre récipient" + reçu à l'écran + reçu par email
+- Admin : historique complet et permanent (base de données), filtres par date/statut, graphiques,
+  gestion du prix au litre, suivi du stock restant, marquage "livré"
+- Prêt à être branché plus tard à un ESP32 (capteur de niveau + confirmation de livraison réelle)
 
-## Comment ça marche
+## 1. Créer la base de données (Supabase — gratuite et permanente)
 
-1. Le client remplit un montant et clique sur **Payer avec KKiaPay**.
-2. Le widget KKiaPay s'ouvre (modal, pas besoin de quitter la page) en mode `sandbox`.
-3. Une fois le paiement tenté, KKiaPay renvoie un `transactionId` au frontend.
-4. Le frontend envoie ce `transactionId` au backend (`/api/transactions/verify`).
-5. **Le backend revérifie TOUJOURS la transaction auprès de KKiaPay** (avec ta clé
-   privée) avant d'afficher "Payé" — on ne fait jamais confiance au seul statut
-   renvoyé côté navigateur, ça évite qu'un utilisateur triche en manipulant le JS.
-6. Le résultat (SUCCESS / FAILED / PENDING) est enregistré dans `transactions.json`
-   et affiché dans le tableau d'historique.
+1. Va sur https://supabase.com et crée un compte (tu peux te connecter avec GitHub)
+2. Clique **New project**, donne-lui un nom (ex: `xsmartpump`), choisis un mot de passe pour
+   la base (note-le bien, tu en as besoin après), choisis une région proche, clique **Create**
+3. Attends 1-2 minutes que le projet soit prêt
+4. Dans le menu de gauche : **SQL Editor** → **New query**
+5. Ouvre le fichier `schema.sql` (fourni avec ce projet), copie tout son contenu, colle-le dans
+   l'éditeur SQL de Supabase, puis clique **Run**. Ça crée les tables nécessaires.
+6. Va dans **Project Settings** (icône engrenage) → **Database** → section **Connection string**
+   → onglet **URI**. Copie l'URL affichée (elle commence par `postgresql://postgres:...`).
+   Remplace `[YOUR-PASSWORD]` dans cette URL par le mot de passe que tu as choisi à l'étape 2.
+   C'est cette URL complète qui va dans `DATABASE_URL` dans ton `.env`.
 
-## 1. Créer un compte KKiaPay (Sandbox)
+## 2. Créer un compte Gmail dédié pour l'envoi des reçus (optionnel mais activé par défaut ici)
 
-1. Va sur https://app.kkiapay.me et crée un compte marchand.
-2. Active le **mode Sandbox** dans le dashboard.
-3. Récupère 3 clés dans Dashboard > Paramètres > Clés API :
-   - Clé publique (`publickey`)
-   - Clé privée (`privatekey`)
-   - Clé secrète (`secretkey`)
-4. En sandbox, KKiaPay fournit des numéros de téléphone de test (mobile money)
-   pour simuler un paiement réussi ou échoué — regarde la page
-   "KKiaPay Sandbox : Guide de Test" de leur documentation pour les numéros à jour.
+1. Utilise un compte Gmail existant, ou crée un compte Gmail dédié à XSMARTPUMP
+2. Active la validation en 2 étapes sur ce compte (obligatoire pour l'étape suivante) :
+   myaccount.google.com/security → "Validation en 2 étapes" → active-la
+3. Toujours dans myaccount.google.com/security, cherche **"Mots de passe des applications"**
+   (App passwords). Si tu ne le vois pas directement, cherche "App passwords" dans la barre de
+   recherche des paramètres Google.
+4. Crée un mot de passe d'application (nom libre, ex: "xsmartpump"). Google te donne un code de
+   16 caractères → **note-le**, c'est lui qui va dans `SMTP_PASS` (pas ton vrai mot de passe Gmail)
 
-## 2. Installation
+## 3. Configurer le fichier .env
 
 ```bash
-cd kkiapay-demo
+cd xsmartpump
 cp .env.example .env
-# puis édite .env et colle tes 3 clés sandbox
+```
+
+Édite `.env` et remplis :
+- `KKIAPAY_PUBLIC_KEY`, `KKIAPAY_PRIVATE_KEY`, `KKIAPAY_SECRET_KEY` → tes clés sandbox KKiaPay
+- `ADMIN_PASSWORD` → le mot de passe que tu veux pour te connecter à `/admin`
+- `SESSION_SECRET` → n'importe quelle longue phrase aléatoire
+- `DATABASE_URL` → l'URL Supabase récupérée à l'étape 1.6
+- `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`, `SMTP_USER=tonadresse@gmail.com`,
+  `SMTP_PASS=le-code-16-caracteres`, `SMTP_FROM=tonadresse@gmail.com`
+- `ESP32_API_KEY` → n'importe quelle chaîne secrète (utile seulement quand tu brancheras l'ESP32)
+
+## 4. Installer et lancer
+
+```bash
 npm install
 npm start
 ```
 
-Le serveur démarre sur http://localhost:3000
+Ouvre http://localhost:3000 pour la page client, et http://localhost:3000/admin pour l'admin.
 
-## 3. Tester
+## 5. Déployer sur Render
 
-1. Ouvre http://localhost:3000
-2. Renseigne un montant (ex : 1000 FCFA), clique sur "Payer avec KKiaPay"
-3. Dans le widget, utilise un numéro de test sandbox fourni par KKiaPay
-4. Regarde le statut s'afficher, et la ligne apparaître dans l'historique
+Sur ton service Render existant, va dans **Environment** et ajoute/mets à jour **toutes** les
+variables listées ci-dessus (les mêmes valeurs que dans ton `.env` local). Fais un nouveau
+`git push` pour envoyer le nouveau code — Render redéploiera automatiquement.
 
-## Structure du projet
+⚠️ Important : ne mets JAMAIS `DATABASE_URL`, les clés KKiaPay, ou `SMTP_PASS` directement dans
+le code ou sur GitHub — uniquement dans les variables d'environnement de Render.
 
-```
-kkiapay-demo/
-├── server.js              # API : /api/config, /api/transactions, /api/transactions/verify
-├── public/
-│   └── index.html          # Frontend : bouton payer + historique
-├── transactions.json        # "Base de données" (créée automatiquement)
-├── .env                    # Tes clés KKiaPay (ne jamais commit !)
-└── package.json
-```
+## Comment ça marche (flux de paiement)
 
-## Aller plus loin (recommandé avant la prod)
+1. Le client saisit une quantité → le frontend appelle `/api/orders/create`
+2. Le serveur calcule le prix à partir de la valeur réelle en base (le client ne peut pas le
+   trafiquer), crée une commande "PENDING", renvoie un `orderId` + le montant exact
+3. Le widget KKiaPay s'ouvre avec ce montant exact
+4. Après tentative de paiement, le frontend envoie `orderId` + `transactionId` à
+   `/api/transactions/verify`
+5. Le serveur revérifie **toujours** auprès de KKiaPay (jamais confiance au navigateur), compare
+   le montant réellement payé à celui attendu, et met à jour le statut (SUCCESS/FAILED)
+6. Si SUCCESS : message de préparation + reçu à l'écran + email envoyé si une adresse a été fournie
 
-- **Webhook KKiaPay** : configure dans le dashboard KKiaPay une URL de webhook
-  pointant vers `/api/kkiapay/webhook` (utilise `ngrok` en local pour exposer
-  ton serveur). Ça garantit que le statut est mis à jour même si l'utilisateur
-  ferme l'onglet avant la vérification côté client.
-- **Base de données réelle** : remplacer `transactions.json` par MySQL/PostgreSQL
-  pour un usage en production (le fichier JSON est fait pour la démo/sandbox).
-- **Authentification** : si la plateforme a des comptes utilisateurs, lie chaque
-  transaction à un `userId` pour que l'historique soit filtré par client.
-- **Montant contrôlé côté serveur** : pour éviter qu'un client modifie le montant
-  dans le JS avant paiement, calcule/valide le montant attendu côté serveur
-  (ex : à partir du prix de la recharge moto) plutôt que de faire confiance
-  totalement à l'input du formulaire.
+## Espace admin (`/admin`, protégé par mot de passe)
+
+- **Graphiques** : revenu des 30 derniers jours, réussis vs échoués
+- **Réglages** : prix au litre, stock restant, capacité totale du réservoir
+- **Historique** : filtrable par date, statut, ou recherche (référence/email)
+- **Colonne "Servi ?"** : bouton pour marquer manuellement une commande comme livrée
+  (décrémente automatiquement le stock restant) — en attendant que l'ESP32 le fasse tout seul
+- **Mode sombre / clair** : bouton en haut à droite, mémorisé dans le navigateur
+
+## Pour plus tard : brancher l'ESP32
+
+Un endpoint est déjà prêt : `POST /api/esp32/tank-level` avec un header `x-esp32-key` correspondant
+à `ESP32_API_KEY`, et un body `{ "tankRemainingLiters": 123 }`. Quand ton ESP32 sera connecté à un
+capteur de niveau, il pourra appeler cette route périodiquement pour mettre à jour le stock en
+temps réel dans l'admin.
+
+Pour la confirmation réelle de livraison (l'ESP32 confirmant que la pompe a bien délivré la
+quantité), on pourra créer un endpoint similaire quand tu seras prêt à câbler cette partie.
+
+## Sécurité — pourquoi certains choix ont été faits
+
+- Le **prix est toujours calculé côté serveur**, jamais fait confiance à ce que le navigateur
+  envoie, pour éviter qu'un client modifie le montant avant paiement.
+- Le **montant réellement payé est comparé** au montant attendu de la commande avant de valider
+  un paiement comme réussi.
+- Les clés secrètes (KKiaPay, base de données, email) ne sont **jamais** exposées au navigateur,
+  seulement utilisées côté serveur.
