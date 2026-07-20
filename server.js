@@ -5,7 +5,6 @@ const cors = require("cors");
 const path = require("path");
 const crypto = require("crypto");
 const { Pool } = require("pg");
-const nodemailer = require("nodemailer");
 const { kkiapay } = require("@kkiapay-org/nodejs-sdk");
 
 const app = express();
@@ -54,36 +53,45 @@ const k = kkiapay({
   sandbox: process.env.KKIAPAY_SANDBOX !== "false",
 });
 
-// --- Email (optionnel : fonctionne seulement si SMTP_* est renseigné dans .env) ---
-let mailer = null;
-if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
-  mailer = nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: parseInt(process.env.SMTP_PORT || "587", 10),
-    secure: process.env.SMTP_PORT === "465",
-    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-  });
-}
-
+// --- Email (via l'API Brevo, fonctionne même sur les hébergeurs qui bloquent le SMTP) ---
 async function sendReceiptEmail(record) {
-  if (!mailer || !record.customer_email) return;
+  if (!process.env.BREVO_API_KEY || !record.customer_email) return;
   const dateStr = new Date(record.updated_at).toLocaleString("fr-FR");
+
   try {
-    await mailer.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
-      to: record.customer_email,
-      subject: "Reçu de votre achat - XSMARTPUMP",
-      text:
-        `Merci pour votre achat chez XSMARTPUMP !\n\n` +
-        `Quantité : ${record.quantity_liters} L\n` +
-        `Prix au litre : ${record.price_per_liter} FCFA\n` +
-        `Montant payé : ${record.amount} FCFA\n` +
-        `Date : ${dateStr}\n` +
-        `Référence KKiaPay : ${record.transaction_id}\n\n` +
-        `Merci de votre confiance.`,
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-key": process.env.BREVO_API_KEY,
+      },
+      body: JSON.stringify({
+        sender: {
+          email: process.env.BREVO_SENDER_EMAIL,
+          name: "XSMARTPUMP",
+        },
+        to: [{ email: record.customer_email }],
+        subject: "Reçu de votre achat - XSMARTPUMP",
+        htmlContent: `
+          <p>Merci pour votre achat chez <strong>XSMARTPUMP</strong> !</p>
+          <ul>
+            <li>Quantité : ${record.quantity_liters} L</li>
+            <li>Prix au litre : ${record.price_per_liter} FCFA</li>
+            <li>Montant payé : ${record.amount} FCFA</li>
+            <li>Date : ${dateStr}</li>
+            <li>Référence KKiaPay : ${record.transaction_id}</li>
+          </ul>
+          <p>Merci de votre confiance.</p>
+        `,
+      }),
     });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      console.error("Erreur envoi email (Brevo) :", response.status, errText);
+    }
   } catch (err) {
-    console.error("Erreur envoi email :", err.message || err);
+    console.error("Erreur envoi email (Brevo) :", err.message || err);
   }
 }
 
